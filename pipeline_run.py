@@ -1,8 +1,8 @@
-from crewai import Crew, Process
+from crewai import Crew, Process, Task
 from agents.transcription import agent_transcription
 from agents.analyste import agent_analyste
 from agents.synthese import agent_synthese
-from crewai import Task
+
 
 def analyser_reunion(chemin_fichier):
     """Lance les 3 agents sur le fichier donne et retourne le compte-rendu."""
@@ -12,6 +12,7 @@ def analyser_reunion(chemin_fichier):
         expected_output="Le texte complet de la transcription de la reunion.",
         agent=agent_transcription,
     )
+
     tache_analyse = Task(
         description=(
             "A partir de la transcription, extrais et liste clairement : "
@@ -22,9 +23,16 @@ def analyser_reunion(chemin_fichier):
         agent=agent_analyste,
         context=[tache_transcription],
     )
+
     tache_synthese = Task(
-        description="Redige un compte-rendu professionnel de la reunion a partir de l'analyse.",
-        expected_output="Un compte-rendu clair et bien organise de la reunion.",
+        description=(
+            "A partir de l'analyse, redige un RESUME EXECUTIF de 2 a 3 phrases maximum. "
+            "Capture uniquement l'essentiel : le sujet de la reunion, les decisions majeures, "
+            "et l'etat global du projet. "
+            "Ne liste pas les details (deja fait par l'analyste). "
+            "Sois percutant et factuel. Aucune phrase de remplissage."
+        ),
+        expected_output="Un resume executif de 2 a 3 phrases, percutant et factuel.",
         agent=agent_synthese,
         context=[tache_analyse],
     )
@@ -35,5 +43,6 @@ def analyser_reunion(chemin_fichier):
         process=Process.sequential,
         verbose=True,
     )
+
     resultat = crew.kickoff()
     return str(resultat)

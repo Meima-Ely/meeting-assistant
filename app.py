@@ -7,20 +7,22 @@ st.set_page_config(page_title="Assistant de Reunion IA", page_icon="🎙️")
 st.title("🎙️ Assistant Intelligent de Reunion")
 st.write("Uploadez une reunion, l'IA extrait decisions, taches et compte-rendu.")
 
-# Upload de n'importe quel fichier
 fichier = st.file_uploader("Choisissez votre reunion", type=["mp4", "m4a", "mp3", "wav"])
 
 if fichier is not None:
-    # Sauvegarder le fichier uploade
-    chemin = os.path.join("uploads_temp", fichier.name)
+    # Dossier temporaire
     os.makedirs("uploads_temp", exist_ok=True)
+    chemin = os.path.join("uploads_temp", fichier.name)
+
+    # Ecrire le fichier complet sur le disque
     with open(chemin, "wb") as f:
         f.write(fichier.getbuffer())
 
-    st.success(f"Fichier recu : {fichier.name}")
+    st.success(f"Fichier recu : {fichier.name} ({fichier.size} octets)")
+    st.info(f"Chemin analyse : {chemin}")
 
     if st.button("🚀 Analyser la reunion"):
-        with st.spinner("Les agents travaillent... (transcription, analyse, synthese)"):
+        with st.spinner("Les agents travaillent... (1-2 min)"):
             resultat = analyser_reunion(chemin)
-        st.subheader("📋 Compte-Rendu")
+        st.subheader("📋 Resume Executif")
         st.markdown(resultat)
