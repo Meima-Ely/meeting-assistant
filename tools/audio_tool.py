@@ -2,9 +2,11 @@ import subprocess
 from crewai.tools import tool
 from config import groq_client
 
+
 @tool("Transcripteur Audio")
 def transcrire_audio(fichier_mp4: str) -> str:
     """Extrait l'audio d'un MP4 et le transcrit en texte avec Whisper via Groq.
+    Detecte automatiquement la langue (arabe, francais, anglais...).
     Prend le chemin du MP4 et retourne le texte transcrit."""
     subprocess.run([
         "ffmpeg", "-i", fichier_mp4,
@@ -17,6 +19,5 @@ def transcrire_audio(fichier_mp4: str) -> str:
         file=("audio.wav", audio_data),
         model="whisper-large-v3-turbo",
         response_format="text",
-        language="fr",
     )
     return str(transcription)
