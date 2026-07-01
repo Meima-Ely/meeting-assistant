@@ -1,11 +1,13 @@
 import os
 import requests
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 GITHUB_REPO = os.environ.get("GITHUB_REPO")
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 
 def creer_issue(titre, description=""):
@@ -20,4 +22,47 @@ def creer_issue(titre, description=""):
     if response.status_code == 201:
         return response.json()["html_url"]
     else:
-        return f"Erreur {response.status_code} : {response.text}"
+        return f"Erreur {response.status_code}"
+
+
+def extraire_taches(texte_analyse):
+    """Utilise le LLM pour extraire une liste propre de taches du texte d'analyse."""
+    prompt = f"""Voici l'analyse d'une reunion. Extrais UNIQUEMENT les taches a faire.
+Reponds avec une tache par ligne, au format : Tache | Responsable
+Si pas de responsable, mets "Non specifie".
+N'ajoute AUCUN autre texte, juste les lignes.
+
+Analyse :
+{texte_analyse}
+
+Taches :"""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+    )
+    texte = response.choices[0].message.content.strip()
+
+    taches = []
+    for ligne in texte.split("\n"):
+        ligne = ligne.strip()
+        if "|" in ligne:
+            parts = ligne.split("|")
+            tache = parts[0].strip("- ").strip()
+            responsable = parts[1].strip() if len(parts) > 1 else "Non specifie"
+            if tache:
+                taches.append({"tache": tache, "responsable": responsable})
+    return taches
+
+
+def creer_issues_depuis_analyse(texte_analyse):
+    """Extrait les taches de l'analyse et cree une issue GitHub pour chacune."""
+    taches = extraire_taches(texte_analyse)
+    resultats = []
+    for t in taches:
+        titre = t["tache"]
+        description = f"**Responsable :** {t['responsable']}\n\n_Tache extraite automatiquement d'une reunion par l'assistant IA._"
+        url = creer_issue(titre, description)
+        resultats.append({"tache": titre, "responsable": t["responsable"], "url": url})
+    return resultats

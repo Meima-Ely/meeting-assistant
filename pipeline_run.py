@@ -47,11 +47,13 @@ def analyser_reunion(chemin_fichier):
 
     resultat = crew.kickoff()
 
-    # Recuperer la transcription (sortie du 1er agent) et la memoriser dans le RAG
     try:
         transcription = str(tache_transcription.output)
         memoriser_reunion(transcription, nom_reunion=chemin_fichier)
     except Exception as e:
         print(f"Memorisation RAG echouee : {e}")
 
-    return str(resultat)
+    # Recuperer l'analyse (taches) pour le MCP GitHub
+    analyse = str(tache_analyse.output)
+
+    return {"resume": str(resultat), "analyse": analyse}
