@@ -26,10 +26,18 @@ def creer_issue(titre, description=""):
 
 
 def extraire_taches(texte_analyse):
-    """Utilise le LLM pour extraire une liste propre de taches du texte d'analyse."""
-    prompt = f"""Voici l'analyse d'une reunion. Extrais UNIQUEMENT les taches a faire.
-Reponds avec une tache par ligne, au format : Tache | Responsable
-Si pas de responsable, mets "Non specifie".
+    """Utilise le LLM pour extraire une liste propre de taches (une par responsable)."""
+    prompt = f"""Voici l'analyse d'une reunion. Extrais les taches PRINCIPALES a faire.
+
+REGLES IMPORTANTES :
+- Regroupe les taches d'une MEME personne en UNE SEULE tache (ex: si Karim doit "gerer l'integration" ET "contacter le client", cree une seule tache "Gerer l'integration et contacter le client").
+- N'inclus PAS les points de blocage comme des taches (ex: "obtenir l'acces aux donnees", "remplacer le serveur" sont des blocages, PAS des taches assignees).
+- Si deux noms se ressemblent (Karim/Kerim), traite-les comme la meme personne.
+- Vise idealement UNE tache par personne responsable.
+- Maximum 6 taches.
+
+Reponds avec une tache par ligne, au format exact : Tache | Responsable
+Si pas de responsable identifie, mets "Non specifie".
 N'ajoute AUCUN autre texte, juste les lignes.
 
 Analyse :
@@ -62,7 +70,10 @@ def creer_issues_depuis_analyse(texte_analyse):
     resultats = []
     for t in taches:
         titre = t["tache"]
-        description = f"**Responsable :** {t['responsable']}\n\n_Tache extraite automatiquement d'une reunion par l'assistant IA._"
+        description = (
+            f"**Responsable :** {t['responsable']}\n\n"
+            f"_Tache extraite automatiquement d'une reunion par l'assistant IA._"
+        )
         url = creer_issue(titre, description)
         resultats.append({"tache": titre, "responsable": t["responsable"], "url": url})
     return resultats

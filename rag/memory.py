@@ -18,7 +18,7 @@ DB_DIR = "chroma_db"
 
 
 def memoriser_reunion(texte, nom_reunion="reunion"):
-    """Decoupe une reunion en morceaux et la stocke dans la memoire RAG."""
+    """Memorise une reunion. Si elle existe deja, remplace l'ancienne version (pas de doublon)."""
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,
@@ -28,6 +28,14 @@ def memoriser_reunion(texte, nom_reunion="reunion"):
         persist_directory=DB_DIR,
         embedding_function=embeddings,
     )
+
+    # Supprimer l'ancienne version de cette reunion (si elle existe deja)
+    try:
+        db.delete(where={"reunion": nom_reunion})
+    except Exception as e:
+        print(f"Pas d'ancienne version a supprimer : {e}")
+
+    # Memoriser la nouvelle version
     db.add_texts(
         texts=morceaux,
         metadatas=[{"reunion": nom_reunion} for _ in morceaux],

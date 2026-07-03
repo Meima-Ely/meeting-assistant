@@ -16,11 +16,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Appliquer le design (CSS isole dans style.py)
 st.markdown(CSS, unsafe_allow_html=True)
 
 # ===== SESSION STATE =====
-for cle in ["resume", "analyse", "reponse", "issues", "compteurs", "chat"]:
+for cle in ["resume", "analyse", "reponse", "issues", "compteurs", "chat", "tg_envoye"]:
     if cle not in st.session_state:
         st.session_state[cle] = None
 if st.session_state.chat is None:
@@ -68,13 +67,14 @@ if fichier is not None:
             st.session_state.resume = resultat["resume"]
             st.session_state.analyse = resultat["analyse"]
             st.session_state.issues = None
+            st.session_state.tg_envoye = None
             st.session_state.compteurs = compter_elements(resultat["analyse"])
         st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ===== METRIQUES (vrais chiffres) =====
+# ===== METRIQUES =====
 if st.session_state.compteurs:
     c = st.session_state.compteurs
     donnees = [
@@ -96,7 +96,7 @@ if st.session_state.compteurs:
             """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-# ===== RESUME + GITHUB =====
+# ===== RESUME + GITHUB/TELEGRAM =====
 if st.session_state.resume:
     col_g, col_d = st.columns(2, gap="medium")
 
@@ -128,27 +128,19 @@ if st.session_state.resume:
 
     with col_d:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        nb = len(st.session_state.issues) if st.session_state.issues else 0
-        sous_titre = f"{nb} issues créées automatiquement" if st.session_state.issues else "Prêt à créer les tâches"
-        tg = '<span class="badge-tg">🔔 Notifié sur Telegram</span>' if st.session_state.issues else ''
-        st.markdown(f"""
-        <div style="display:flex; align-items:center; justify-content:space-between;">
-          <div>
-            <p class="card-title">🐙 Tâches GitHub (MCP)</p>
-            <p class="card-sub">{sous_titre}</p>
-          </div>
-          {tg}
-        </div>
-        <div class="hr"></div>
-        """, unsafe_allow_html=True)
+        st.markdown('<p class="card-title">🐙 Tâches GitHub (MCP)</p>', unsafe_allow_html=True)
+        st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
-        if not st.session_state.issues:
-            if st.button("🔧 Créer les issues sur GitHub", use_container_width=True):
-                with st.spinner("Création des issues..."):
-                    st.session_state.issues = creer_issues_depuis_analyse(st.session_state.analyse)
-                    notifier_taches_creees(st.session_state.issues, os.environ.get("GITHUB_REPO"))
-                st.rerun()
-        else:
+        # BOUTON 1 : GITHUB
+        if st.button("🔧 Créer les issues sur GitHub", use_container_width=True):
+            with st.spinner("Création des issues GitHub..."):
+                st.session_state.issues = creer_issues_depuis_analyse(st.session_state.analyse)
+                st.session_state.tg_envoye = None
+            st.rerun()
+
+        # Afficher les issues créées
+        if st.session_state.issues:
+            st.success(f"✅ {len(st.session_state.issues)} issues créées")
             for issue in st.session_state.issues:
                 initiales = "".join([m[0].upper() for m in issue["responsable"].split()[:2]]) if issue["responsable"] != "Non specifie" else "?"
                 st.markdown(f"""
@@ -164,6 +156,20 @@ if st.session_state.resume:
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
+
+            # BOUTON 2 : TELEGRAM
+            st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
+            if st.button("📱 Envoyer la notification Telegram", use_container_width=True):
+                with st.spinner("Envoi de la notification Telegram..."):
+                    ok = notifier_taches_creees(st.session_state.issues, os.environ.get("GITHUB_REPO"))
+                    st.session_state.tg_envoye = ok
+                st.rerun()
+
+            if st.session_state.tg_envoye is True:
+                st.success("📱 Notification envoyée sur Telegram !")
+            elif st.session_state.tg_envoye is False:
+                st.error("❌ Échec de l'envoi Telegram (voir le terminal)")
+
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -182,12 +188,14 @@ if st.session_state.resume:
     <div class="hr"></div>
     """, unsafe_allow_html=True)
 
+    # Historique du chat
     for msg in st.session_state.chat:
         if msg["role"] == "user":
             st.markdown(f'<div class="bubble-u">{msg["text"]}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="bubble-a">{msg["text"]}</div>', unsafe_allow_html=True)
 
+    # Boutons rapides
     st.markdown("<div style='font-size:12.5px; color:#64748b; margin-bottom:6px;'>Questions rapides :</div>", unsafe_allow_html=True)
     q1, q2, q3, q4 = st.columns(4)
     question = None
@@ -200,9 +208,21 @@ if st.session_state.resume:
     if q4.button("Blocages", use_container_width=True):
         question = "Y a-t-il des points de blocage ou problemes dans la reunion ?"
 
-    saisie = st.chat_input("Posez une question sur vos réunions...")
-    if saisie:
-        question = saisie
+    # Champ de saisie + bouton (BIEN VISIBLE dans la carte)
+    st.markdown("<div style='font-size:12.5px; color:#64748b; margin:12px 0 6px;'>Ou tapez votre propre question :</div>", unsafe_allow_html=True)
+    col_input, col_btn = st.columns([4, 1])
+    with col_input:
+        question_tapee = st.text_input(
+            "Question",
+            label_visibility="collapsed",
+            placeholder="Ex : Qui s'occupe de la base de données ?",
+            key="input_rag",
+        )
+    with col_btn:
+        chercher = st.button("🔍 Chercher", use_container_width=True)
+
+    if chercher and question_tapee:
+        question = question_tapee
 
     if question:
         st.session_state.chat.append({"role": "user", "text": question})
