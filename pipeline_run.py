@@ -7,13 +7,11 @@ from rag.memory import memoriser_reunion
 
 def analyser_reunion(chemin_fichier):
     """Lance les 3 agents sur le fichier donne et retourne le compte-rendu."""
-
     tache_transcription = Task(
         description=f"Transcris l'audio du fichier '{chemin_fichier}' en utilisant ton outil de transcription.",
         expected_output="Le texte complet de la transcription de la reunion.",
         agent=agent_transcription,
     )
-
     tache_analyse = Task(
         description=(
             "A partir de la transcription, extrais et liste clairement : "
@@ -24,7 +22,6 @@ def analyser_reunion(chemin_fichier):
         agent=agent_analyste,
         context=[tache_transcription],
     )
-
     tache_synthese = Task(
         description=(
             "A partir de l'analyse, redige un RESUME EXECUTIF de 2 a 3 phrases maximum. "
@@ -44,16 +41,20 @@ def analyser_reunion(chemin_fichier):
         process=Process.sequential,
         verbose=True,
     )
-
     resultat = crew.kickoff()
 
+    analyse = str(tache_analyse.output)
+
+    # Memoriser la transcription ET l'analyse structuree dans le RAG
     try:
         transcription = str(tache_transcription.output)
-        memoriser_reunion(transcription, nom_reunion=chemin_fichier)
+        # On memorise les deux : le brut + l'analyse (decisions, taches, echeances, blocages)
+        texte_complet = (
+            f"TRANSCRIPTION DE LA REUNION :\n{transcription}\n\n"
+            f"ANALYSE STRUCTUREE (decisions, taches, echeances, blocages) :\n{analyse}"
+        )
+        memoriser_reunion(texte_complet, nom_reunion=chemin_fichier)
     except Exception as e:
         print(f"Memorisation RAG echouee : {e}")
-
-    # Recuperer l'analyse (taches) pour le MCP GitHub
-    analyse = str(tache_analyse.output)
 
     return {"resume": str(resultat), "analyse": analyse}

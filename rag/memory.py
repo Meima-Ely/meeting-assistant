@@ -24,7 +24,6 @@ def memoriser_reunion(texte, nom_reunion="reunion"):
         chunk_overlap=50,
     )
     morceaux = splitter.split_text(texte)
-
     db = Chroma(
         persist_directory=DB_DIR,
         embedding_function=embeddings,
@@ -42,13 +41,15 @@ def poser_question(question):
         persist_directory=DB_DIR,
         embedding_function=embeddings,
     )
-    # Trouver les 3 morceaux les plus pertinents
-    resultats = db.similarity_search(question, k=3)
+    # Trouver les 5 morceaux les plus pertinents (plus de contexte)
+    resultats = db.similarity_search(question, k=5)
     contexte = "\n\n".join([doc.page_content for doc in resultats])
 
     # Demander au LLM de repondre a partir du contexte
-    prompt = f"""Reponds a la question en te basant UNIQUEMENT sur le contexte ci-dessous.
-Si la reponse n'est pas dans le contexte, dis "Information non trouvee dans les reunions".
+    prompt = f"""Reponds a la question en te basant sur le contexte ci-dessous (transcription et analyse de reunions).
+Le contexte peut contenir des dates ecrites de differentes facons (ex: "avant mercredi", "le 9 juillet", "echeances").
+Cherche attentivement les informations pertinentes, meme si les mots exacts de la question n'apparaissent pas.
+Si vraiment aucune information pertinente n'existe, dis "Information non trouvee dans les reunions".
 
 Contexte :
 {contexte}
