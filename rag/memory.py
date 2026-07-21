@@ -28,13 +28,11 @@ def memoriser_reunion(texte, nom_reunion="reunion"):
         persist_directory=DB_DIR,
         embedding_function=embeddings,
     )
-
     # Supprimer l'ancienne version de cette reunion (si elle existe deja)
     try:
         db.delete(where={"reunion": nom_reunion})
     except Exception as e:
         print(f"Pas d'ancienne version a supprimer : {e}")
-
     # Memoriser la nouvelle version
     db.add_texts(
         texts=morceaux,
@@ -44,27 +42,31 @@ def memoriser_reunion(texte, nom_reunion="reunion"):
 
 
 def poser_question(question):
-    """Cherche dans la memoire et repond a la question avec le LLM."""
+    """Cherche dans la memoire et repond UNIQUEMENT a partir des reunions."""
     db = Chroma(
         persist_directory=DB_DIR,
         embedding_function=embeddings,
     )
-    # Trouver les 5 morceaux les plus pertinents (plus de contexte)
+    # Trouver les 5 morceaux les plus pertinents
     resultats = db.similarity_search(question, k=5)
     contexte = "\n\n".join([doc.page_content for doc in resultats])
 
-    # Demander au LLM de repondre a partir du contexte
-    prompt = f"""Reponds a la question en te basant sur le contexte ci-dessous (transcription et analyse de reunions).
-Le contexte peut contenir des dates ecrites de differentes facons (ex: "avant mercredi", "le 9 juillet", "echeances").
-Cherche attentivement les informations pertinentes, meme si les mots exacts de la question n'apparaissent pas.
-Si vraiment aucune information pertinente n'existe, dis "Information non trouvee dans les reunions".
+    # Prompt STRICT : repond UNIQUEMENT depuis le contexte (anti-hallucination)
+    prompt = f"""Tu es un assistant qui repond aux questions UNIQUEMENT a partir du contexte de reunions ci-dessous.
 
-Contexte :
+REGLES STRICTES :
+- Utilise SEULEMENT les informations presentes dans le contexte ci-dessous.
+- N'utilise JAMAIS tes connaissances generales (geographie, actualite, culture, etc.).
+- Le contexte peut contenir des dates ecrites differemment (ex: "avant mercredi", "le 9 juillet").
+- Si la reponse n'est PAS dans le contexte, reponds EXACTEMENT et UNIQUEMENT :
+  "Cette information n'est pas disponible dans les reunions analysees."
+
+Contexte des reunions :
 {contexte}
 
 Question : {question}
 
-Reponse :"""
+Reponse (basee uniquement sur le contexte) :"""
 
     response = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",

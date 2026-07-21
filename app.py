@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import base64
 from datetime import datetime
 from pipeline_run import analyser_reunion
 from rag.memory import poser_question
@@ -17,6 +18,12 @@ st.set_page_config(
 )
 
 st.markdown(CSS, unsafe_allow_html=True)
+
+
+def get_base64_image(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
 
 # ===== SESSION STATE =====
 for cle in ["resume", "analyse", "reponse", "issues", "compteurs", "chat", "tg_envoye"]:
@@ -62,7 +69,7 @@ if fichier is not None:
         chemin = os.path.join("uploads_temp", fichier.name)
         with open(chemin, "wb") as f:
             f.write(fichier.getbuffer())
-        with st.spinner("Les agents IA travaillent... (1-2 min)"):
+        with st.spinner("Transcription, analyse et synthèse en cours par les 3 agents IA..."):
             resultat = analyser_reunion(chemin)
             st.session_state.resume = resultat["resume"]
             st.session_state.analyse = resultat["analyse"]
@@ -74,21 +81,25 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ===== METRIQUES =====
+# ===== METRIQUES (icônes) =====
 if st.session_state.compteurs:
     c = st.session_state.compteurs
     donnees = [
-        ("💡", "#f5f3ff", "Décisions", c["decisions"], "Prises"),
-        ("✅", "#eff6ff", "Tâches", c["taches"], "Assignées"),
-        ("📅", "#fffbeb", "Échéances", c["echeances"], "Identifiées"),
-        ("⚠️", "#fff1f2", "Blocages", c["blocages"], "Identifiés"),
+        ("icons/decision.png", "#f5f3ff", "Décisions", c["decisions"], "Prises"),
+        ("icons/tache.png", "#eff6ff", "Tâches", c["taches"], "Assignées"),
+        ("icons/echeance.png", "#fffbeb", "Échéances", c["echeances"], "Identifiées"),
+        ("icons/blocage.png", "#fff1f2", "Blocages", c["blocages"], "Identifiés"),
     ]
+
     cols = st.columns(4)
-    for col, (ic, bg, label, n, tag) in zip(cols, donnees):
+    for col, (icon_path, bg, label, n, tag) in zip(cols, donnees):
+        icon_b64 = get_base64_image(icon_path)
         with col:
             st.markdown(f"""
             <div class="metric">
-              <div class="metric-ic" style="background:{bg};">{ic}</div>
+              <div class="metric-ic" style="background:{bg};">
+                <img src="data:image/png;base64,{icon_b64}" width="22" height="22"/>
+              </div>
               <div class="metric-n">{n}</div>
               <div class="metric-l">{label}</div>
               <div class="metric-t">{tag}</div>
@@ -159,22 +170,22 @@ if st.session_state.resume:
 
             # BOUTON 2 : TELEGRAM
             st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-            if st.button("📱 Envoyer la notification Telegram", use_container_width=True):
+            if st.button("Envoyer la notification Telegram", use_container_width=True):
                 with st.spinner("Envoi de la notification Telegram..."):
                     ok = notifier_taches_creees(st.session_state.issues, os.environ.get("GITHUB_REPO"))
                     st.session_state.tg_envoye = ok
                 st.rerun()
 
             if st.session_state.tg_envoye is True:
-                st.success("📱 Notification envoyée sur Telegram !")
+                st.success("Notification envoyée sur Telegram !")
             elif st.session_state.tg_envoye is False:
-                st.error("❌ Échec de l'envoi Telegram (voir le terminal)")
+                st.error("Échec de l'envoi Telegram (voir le terminal)")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-# ===== CHAT RAG =====
+# ===== CHAT RAG (recherche stable en haut, historique en bas) =====
 if st.session_state.resume:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown("""
@@ -188,14 +199,7 @@ if st.session_state.resume:
     <div class="hr"></div>
     """, unsafe_allow_html=True)
 
-    # Historique du chat
-    for msg in st.session_state.chat:
-        if msg["role"] == "user":
-            st.markdown(f'<div class="bubble-u">{msg["text"]}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="bubble-a">{msg["text"]}</div>', unsafe_allow_html=True)
-
-    # Boutons rapides
+    # Boutons rapides (position fixe, en haut)
     st.markdown("<div style='font-size:12.5px; color:#64748b; margin-bottom:6px;'>Questions rapides :</div>", unsafe_allow_html=True)
     q1, q2, q3, q4 = st.columns(4)
     question = None
@@ -208,7 +212,7 @@ if st.session_state.resume:
     if q4.button("Blocages", use_container_width=True):
         question = "Y a-t-il des points de blocage ou problemes dans la reunion ?"
 
-    # Champ de saisie + bouton (BIEN VISIBLE dans la carte)
+    # Champ de saisie (position fixe, en haut)
     st.markdown("<div style='font-size:12.5px; color:#64748b; margin:12px 0 6px;'>Ou tapez votre propre question :</div>", unsafe_allow_html=True)
     col_input, col_btn = st.columns([4, 1])
     with col_input:
@@ -230,6 +234,15 @@ if st.session_state.resume:
             rep = poser_question(question)
         st.session_state.chat.append({"role": "assistant", "text": rep})
         st.rerun()
+
+    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
+
+    # Historique du chat (grandit vers le bas)
+    for msg in st.session_state.chat:
+        if msg["role"] == "user":
+            st.markdown(f'<div class="bubble-u">{msg["text"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="bubble-a">{msg["text"]}</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 

@@ -7,11 +7,13 @@ from rag.memory import memoriser_reunion
 
 def analyser_reunion(chemin_fichier):
     """Lance les 3 agents sur le fichier donne et retourne le compte-rendu."""
+
     tache_transcription = Task(
         description=f"Transcris l'audio du fichier '{chemin_fichier}' en utilisant ton outil de transcription.",
         expected_output="Le texte complet de la transcription de la reunion.",
         agent=agent_transcription,
     )
+
     tache_analyse = Task(
         description=(
             "A partir de la transcription, extrais et liste clairement : "
@@ -22,6 +24,7 @@ def analyser_reunion(chemin_fichier):
         agent=agent_analyste,
         context=[tache_transcription],
     )
+
     tache_synthese = Task(
         description=(
             "A partir de l'analyse, redige un RESUME EXECUTIF de 2 a 3 phrases maximum. "
