@@ -1,12 +1,16 @@
 from crewai import Crew, Process, Task
-from agents.transcription import agent_transcription
-from agents.analyste import agent_analyste
-from agents.synthese import agent_synthese
+from agents.transcription import creer_agent_transcription
+from agents.analyste import creer_agent_analyste
+from agents.synthese import creer_agent_synthese
 from rag.memory import memoriser_reunion
 
 
 def analyser_reunion(chemin_fichier):
     """Lance les 3 agents sur le fichier donne et retourne le compte-rendu."""
+
+    agent_transcription = creer_agent_transcription()
+    agent_analyste = creer_agent_analyste()
+    agent_synthese = creer_agent_synthese()
 
     tache_transcription = Task(
         description=f"Transcris l'audio du fichier '{chemin_fichier}' en utilisant ton outil de transcription.",
@@ -48,10 +52,8 @@ def analyser_reunion(chemin_fichier):
 
     analyse = str(tache_analyse.output)
 
-    # Memoriser la transcription ET l'analyse structuree dans le RAG
     try:
         transcription = str(tache_transcription.output)
-        # On memorise les deux : le brut + l'analyse (decisions, taches, echeances, blocages)
         texte_complet = (
             f"TRANSCRIPTION DE LA REUNION :\n{transcription}\n\n"
             f"ANALYSE STRUCTUREE (decisions, taches, echeances, blocages) :\n{analyse}"

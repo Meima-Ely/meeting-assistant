@@ -154,6 +154,10 @@ if st.session_state.resume:
             st.success(f"✅ {len(st.session_state.issues)} issues créées")
             for issue in st.session_state.issues:
                 initiales = "".join([m[0].upper() for m in issue["responsable"].split()[:2]]) if issue["responsable"] != "Non specifie" else "?"
+                if issue["url"]:
+                    lien_html = f'<a href="{issue["url"]}" target="_blank" style="color:#2E6FED; text-decoration:none;">Voir ↗</a>'
+                else:
+                    lien_html = '<span style="color:#ef4444;">Échec de création</span>'
                 st.markdown(f"""
                 <div class="task">
                   <div class="dot"></div>
@@ -162,7 +166,7 @@ if st.session_state.resume:
                     <span class="pill-open">Ouvert</span>
                     <div class="task-title">{issue['tache']}</div>
                     <div class="task-meta"><span class="avatar">{initiales}</span>{issue['responsable']}
-                      &nbsp;·&nbsp;<a href="{issue['url']}" target="_blank" style="color:#2E6FED; text-decoration:none;">Voir ↗</a>
+                      &nbsp;·&nbsp;{lien_html}
                     </div>
                   </div>
                 </div>
@@ -215,12 +219,15 @@ if st.session_state.resume:
     # Champ de saisie (position fixe, en haut)
     st.markdown("<div style='font-size:12.5px; color:#64748b; margin:12px 0 6px;'>Ou tapez votre propre question :</div>", unsafe_allow_html=True)
     col_input, col_btn = st.columns([4, 1])
+    if "input_rag_version" not in st.session_state:
+        st.session_state.input_rag_version = 0
+
     with col_input:
         question_tapee = st.text_input(
             "Question",
             label_visibility="collapsed",
             placeholder="Ex : Qui s'occupe de la base de données ?",
-            key="input_rag",
+            key=f"input_rag_{st.session_state.input_rag_version}",
         )
     with col_btn:
         chercher = st.button("🔍 Chercher", use_container_width=True)
@@ -233,6 +240,7 @@ if st.session_state.resume:
         with st.spinner("Recherche dans la mémoire..."):
             rep = poser_question(question)
         st.session_state.chat.append({"role": "assistant", "text": rep})
+        st.session_state.input_rag_version += 1
         st.rerun()
 
     st.markdown('<div class="hr"></div>', unsafe_allow_html=True)

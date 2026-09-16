@@ -11,7 +11,7 @@ groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 
 def creer_issue(titre, description=""):
-    """Cree une issue GitHub. Retourne l'URL de l'issue creee."""
+    """Cree une issue GitHub. Retourne l'URL de l'issue creee, ou None en cas d'echec."""
     url = f"https://api.github.com/repos/{GITHUB_REPO}/issues"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -22,7 +22,8 @@ def creer_issue(titre, description=""):
     if response.status_code == 201:
         return response.json()["html_url"]
     else:
-        return f"Erreur {response.status_code}"
+        print(f"Erreur GitHub {response.status_code} : {response.text}")
+        return None
 
 
 def extraire_taches(texte_analyse):
@@ -46,7 +47,7 @@ Analyse :
 Taches :"""
 
     response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
     )

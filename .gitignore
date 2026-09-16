@@ -3,3 +3,4 @@ venv/
 audio.wav
 __pycache__/
 uploads_temp/
+chroma_db/
